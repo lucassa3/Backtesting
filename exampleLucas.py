@@ -54,30 +54,31 @@ class LinRegStrat(Strategy):
     self.pred_label = 0
     self.prev_pred_label = 0
     self.counter = 0
-    self.window = 5
+    self.window = 4
 
     
   def push(self, event):
     price = event.price[3]
     self.prices.append(price)
     orders = []
+
+    
     if len(self.prices) == self.window:
       if len(self.train_set) < self.train_size:
-        if len(self.train_set) > 0: 
+        print(len(self.train_set))
+        if len(self.train_set) > 0:
           self.labels.append(price)
-          print(len(self.train_set), len(self.labels))
-          print(self.train_set[-1])
-          print(self.labels[-1])
         self.train_set.append(self.prices)
-        
-      elif len(self.train_set) == self.train_size:
-        self.labels.append(price)
       else:
         if not self.is_trained:
-          print(len(self.train_set, self.labels))
-          self.regr.fit(self.train_set, self.labels)
+          self.labels.append(price)
+          labels = np.asarray(self.labels, dtype=np.float32)
+
+          train_set = np.asarray(self.train_set, dtype=np.float32)
+          print(train_set.shape, labels.shape)
+          self.regr.fit(train_set, labels)
           self.is_trained = True
-        self.prev_pred_label = self.prev_label
+        self.prev_pred_label = self.pred_label
         self.pred_label = self.regr.predict(self.prices)
 
         if self.pred_label > self.prev_pred_label and self.signal != 1:
@@ -93,9 +94,6 @@ class LinRegStrat(Strategy):
 
       del self.prices[0]
       self.counter += 1
-    if self.counter == 400:
-      exit()
-    
 
     return orders
 
