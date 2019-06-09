@@ -1,9 +1,8 @@
-from backtesting import evaluateHist
+from backtesting import evaluateHist, evaluateIntr
 from strategy import Strategy
 from order import Order
 import numpy as np
-from sklearn import datasets, linear_model
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn import datasets, linear_model  
 
 class EMAVG(Strategy):
   def __init__(self):
@@ -55,31 +54,27 @@ class LinRegStrat(Strategy):
     self.prev_pred_label = 0
     self.counter = 0
     self.window = 4
-
-    
+  
   def push(self, event):
     price = event.price[3]
     self.prices.append(price)
     orders = []
-
     
     if len(self.prices) == self.window:
       if len(self.train_set) < self.train_size:
-        print(len(self.train_set))
         if len(self.train_set) > 0:
           self.labels.append(price)
         self.train_set.append(self.prices)
       else:
         if not self.is_trained:
           self.labels.append(price)
-          labels = np.asarray(self.labels, dtype=np.float32)
-
-          train_set = np.asarray(self.train_set, dtype=np.float32)
-          print(train_set.shape, labels.shape)
+          labels = np.array(self.labels)
+          train_set = np.array(self.train_set)
           self.regr.fit(train_set, labels)
           self.is_trained = True
+        
         self.prev_pred_label = self.pred_label
-        self.pred_label = self.regr.predict(self.prices)
+        self.pred_label = self.regr.predict([self.prices])
 
         if self.pred_label > self.prev_pred_label and self.signal != 1:
           if self.signal == -1:
@@ -97,5 +92,58 @@ class LinRegStrat(Strategy):
 
     return orders
 
-print(evaluateHist(LinRegStrat(), {'IBOV':'^BVSP.csv'}))
+
+class PBRDealer(Strategy):
+  def __init__(self):
+    self.orders = []
+    self.petr3_price = None
+    self.dollar_price = None
+    self.spread = 0
+
+    self.F = 2
+    self.ti = 0.5
+    self.tf = 0.5
+
+  def petr3_to_pbr(self):
+    return (self.petr3_price * self.F * self.ti) / self.dollar_price + self.tf
+  def pbr_to_petr3(self):
+    pass
+    
+
+  def push(self, event):
+    if event.instrument == "USDBRL":
+      self.dollar_price = event.price[3]
+    elif event.instrument == "PETR3":
+      self.petr3_price = event.price[3]
+
+    if self.dollar_price and self.petr3_price:
+      if self.orders:
+        for order in self.orders:
+          self.cancel(self.id, order.id)
+      
+      self.orders = []
+            
+      buy_order = Order(event.instrument, 1, self.petr3_to_pbr() - self.spread)
+      sell_order = Order(event.instrument, -1, self.petr3_to_pbr() + self.spread)
+      self.orders.extend([buy_order, sell_order])
+
+      return self.orders
+
+    return []
+
+
+
+    
+
+
+
+
+
+
+
+    
+
+# print(evaluateHist(LinRegStrat(), {'IBOV':'^BVSP.csv'}))
+# print(evaluateHist(EMAVG(), {'IBOV':'^BVSP.csv'}))
+print(evaluateIntr(PBRDealer(), {'USDBRL':'USDBRL.csv', 'PETR3':'PETR3.csv'}))
 
