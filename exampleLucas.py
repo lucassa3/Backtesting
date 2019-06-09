@@ -101,13 +101,12 @@ class PBRDealer(Strategy):
     self.spread = 0
 
     self.F = 2
-    self.ti = 0.5
-    self.tf = 0.5
+    self.ti = 1.35
+    self.tf = 0.15
 
   def petr3_to_pbr(self):
     return (self.petr3_price * self.F * self.ti) / self.dollar_price + self.tf
-  def pbr_to_petr3(self):
-    pass
+
     
 
   def push(self, event):
@@ -131,9 +130,12 @@ class PBRDealer(Strategy):
 
     return []
 
+    def fill(self, instrument, price, quantity, status):
+        super().fill(instrument, price, quantity, status)
 
 
-    
+
+
 
 
 
